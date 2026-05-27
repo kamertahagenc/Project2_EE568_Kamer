@@ -1,0 +1,142 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{geometry}
+\geometry{a4paper, margin=1in}
+
+% Setup for Python code formatting
+\lstset{
+    language=Python,
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{blue},
+    stringstyle=\color{red},
+    commentstyle=\color{green!60!black},
+    numbers=left,
+    numberstyle=\tiny,
+    stepnumber=1,
+    numbersep=8pt,
+    backgroundcolor=\color{gray!10},
+    showstringspaces=false,
+    breaklines=true,
+    frame=single
+}
+
+\begin{document}
+
+\section*{Q1: Integral-Slot Winding Design}
+
+\noindent
+\textbf{Machine Parameters:} 3-phase, 6-pole, 72-slot, double-layer winding. \\
+\textbf{Base Calculations:}
+\begin{itemize}
+    \item Slots per pole per phase ($q$): $q = \frac{72}{6 \cdot 3} = 4 \text{ slots/pole/phase}$
+    \item Electrical slot angle ($\alpha$): $\alpha = \frac{3 \cdot 360^\circ}{72} = 15^\circ \text{ electrical}$
+\end{itemize}
+
+\hrulefill
+
+\subsection*{1. Winding Diagram Layout (One Pole-Pair)}
+
+The standard phase sequence is $A, -C, B, -A, C, -B$. With $q=4$, each phase band occupies 4 slots. Below are the double-layer winding distributions for the first 24 slots (representing exactly one pole-pair).
+
+\subsubsection*{Full-Pitched Winding (Pitch = 12 Slots)}
+The coil spans exactly one pole pitch. The upper and lower layers in each slot belong to the same phase.
+
+\vspace{0.3cm}
+\noindent
+\resizebox{\textwidth}{!}{
+\begin{tabular}{|l|*{24}{c|}}
+\hline
+\textbf{Slot} & \textbf{1} & \textbf{2} & \textbf{3} & \textbf{4} & \textbf{5} & \textbf{6} & \textbf{7} & \textbf{8} & \textbf{9} & \textbf{10} & \textbf{11} & \textbf{12} & \textbf{13} & \textbf{14} & \textbf{15} & \textbf{16} & \textbf{17} & \textbf{18} & \textbf{19} & \textbf{20} & \textbf{21} & \textbf{22} & \textbf{23} & \textbf{24} \\ \hline
+\textbf{Top} & A & A & A & A & -C & -C & -C & -C & B & B & B & B & -A & -A & -A & -A & C & C & C & C & -B & -B & -B & -B \\ \hline
+\textbf{Bot} & A & A & A & A & -C & -C & -C & -C & B & B & B & B & -A & -A & -A & -A & C & C & C & C & -B & -B & -B & -B \\ \hline
+\end{tabular}
+}
+
+\subsubsection*{11/12 Short-Pitched Winding (Pitch = 11 Slots)}
+Shortening the pitch by 1 slot shifts the bottom layer relative to the top layer, creating mixed-phase slots.
+
+\vspace{0.3cm}
+\noindent
+\resizebox{\textwidth}{!}{
+\begin{tabular}{|l|*{24}{c|}}
+\hline
+\textbf{Slot} & \textbf{1} & \textbf{2} & \textbf{3} & \textbf{4} & \textbf{5} & \textbf{6} & \textbf{7} & \textbf{8} & \textbf{9} & \textbf{10} & \textbf{11} & \textbf{12} & \textbf{13} & \textbf{14} & \textbf{15} & \textbf{16} & \textbf{17} & \textbf{18} & \textbf{19} & \textbf{20} & \textbf{21} & \textbf{22} & \textbf{23} & \textbf{24} \\ \hline
+\textbf{Top} & A & A & A & \textbf{A} & -C & -C & -C & \textbf{-C} & B & B & B & \textbf{B} & -A & -A & -A & \textbf{-A} & C & C & C & \textbf{C} & -B & -B & -B & \textbf{-B} \\ \hline
+\textbf{Bot} & A & A & A & \textbf{-C} & -C & -C & -C & \textbf{B} & B & B & B & \textbf{-A} & -A & -A & -A & \textbf{C} & C & C & C & \textbf{-B} & -B & -B & -B & \textbf{A} \\ \hline
+\end{tabular}
+}
+
+\subsection*{2. Winding Factor Calculations}
+
+To calculate the winding factor $K_{wn}$ for the fundamental ($n=1$), 3rd harmonic ($n=3$), and 5th harmonic ($n=5$), a Python script was utilized. The winding factor is the product of the distribution factor $K_{dn}$ and the pitch factor $K_{pn}$.
+
+\begin{align*}
+    K_{dn} &= \frac{\sin(n \cdot q \cdot \alpha / 2)}{q \cdot \sin(n \cdot \alpha / 2)} \\
+    K_{pn} &= \sin\left(\frac{n \cdot \lambda}{2}\right) \quad \text{(where $\lambda$ is the electrical coil pitch)}
+\end{align*}
+
+\subsubsection*{Python Script}
+\begin{lstlisting}
+import math
+
+slots = 72
+pole_pairs = 3
+phases = 3
+layers = 2
+
+# slots per pole per phase
+q = slots / (2 * pole_pairs * phases)
+
+# electrical slot angle in radians (alpha)
+alpha = pole_pairs * 2 * math.pi / slots
+
+# --- Distribution Factor Function ---
+def calc_kd(n_harmonic):
+    return math.sin(n_harmonic * q * alpha / 2) / (q * math.sin(n_harmonic * alpha / 2))
+
+Kd1 = calc_kd(1)
+Kd3 = calc_kd(3)
+Kd5 = calc_kd(5)
+
+# --- Pitch Factor Function ---
+def calc_kp(n_harmonic, slots_spanned):
+    # lambda is the electrical angle of the spanned slots
+    lambda_rad = slots_spanned * alpha
+    return math.sin(n_harmonic * lambda_rad / 2)
+
+# Full Pitch (spans exactly 1 pole pitch = 12 slots)
+Kfp1 = calc_kp(1, 12)
+Kfp3 = calc_kp(3, 12)
+Kfp5 = calc_kp(5, 12)
+
+# Short Pitch 11/12 (spans 11 slots)
+Ksp1 = calc_kp(1, 11)
+Ksp3 = calc_kp(3, 11)
+Ksp5 = calc_kp(5, 11)
+
+# --- Winding Factor (Kw = Kd * Kp) ---
+Kfw1, Kfw3, Kfw5 = Kd1 * Kfp1, Kd3 * Kfp3, Kd5 * Kfp5
+Ksw1, Ksw3, Ksw5 = Kd1 * Ksp1, Kd3 * Ksp3, Kd5 * Ksp5
+
+print(f"Full-Pitch Kw:  1st={Kfw1:.4f}, 3rd={Kfw3:.4f}, 5th={Kfw5:.4f}")
+print(f"Short-Pitch Kw: 1st={Ksw1:.4f}, 3rd={Ksw3:.4f}, 5th={Ksw5:.4f}")
+\end{lstlisting}
+
+\subsubsection*{Results}
+Executing the script yields the following winding factors:
+\begin{itemize}
+    \item \textbf{Full-Pitch Winding:} $K_{w1} = \mathbf{0.9577}$, $K_{w3} = \mathbf{-0.6533}$, $K_{w5} = \mathbf{0.2053}$
+    \item \textbf{11/12 Short-Pitch Winding:} $K_{w1} = \mathbf{0.9495}$, $K_{w3} = \mathbf{-0.6036}$, $K_{w5} = \mathbf{0.1629}$
+\end{itemize}
+
+\subsection*{3. Commentary on Results}
+
+These two winding configurations show the electrical advantage of short-pitching the coils. In the 11/12 short-pitched design, the fundamental winding factor ($K_{w1}$) decreases from 0.9577 to 0.9495 (a reduction of less than 1\%). Therefore, the useful fundamental component of the induced back-EMF is preserved.
+
+However, the short-pitch configuration significantly impacts the higher-order harmonics. The magnitude of the 5th harmonic winding factor ($K_{w5}$) is reduced by over 20\% (from 0.2053 down to 0.1629), and the magnitude of the 3rd harmonic ($K_{w3}$) is reduced by approximately 7.6\% (from 0.6533 down to 0.6036). The short-pitched winding cancels out a significant portion of the unwanted harmonic fluxes. This results in a much more sinusoidal back-EMF waveform and reduced harmonic losses, without significantly sacrificing the fundamental voltage.
+
+\end{document}
