@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Star of Slots Diagram Generator</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f4f9;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+        }
+
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 40px;
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            max-width: 1000px;
+            justify-content: center;
+            align-items: flex-start; /* Fixes the vertical squishing */
+        }
+
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            min-width: 250px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        label {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #555;
+        }
+
+        input[type="number"] {
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 16px;
+            width: 100px;
+        }
+
+        .info-box {
+            background-color: #e8f4fd;
+            padding: 15px;
+            border-left: 5px solid #3498db;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+
+        .info-box p {
+            margin: 5px 0;
+            font-size: 14px;
+        }
+
+        canvas {
+            background: #fff;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.05);
+            margin-top: 10px;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 6px 8px; /* Reduced vertical padding to fit 12 rows better */
+            text-align: center;
+        }
+
+        th {
+            background-color: #f2f2f2;
+            color: #333;
+            position: sticky;
+            top: 0;
+        }
+
+        .table-container {
+            min-width: 200px;
+            max-height: 500px; /* Increased to allow full table visibility */
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Star of Slots Diagram</h1>
+
+    <div class="container">
+        <div class="controls">
+            <div class="control-group">
+                <label for="slots">Number of Slots (N<sub>s</sub>):</label>
+                <input type="number" id="slots" value="12" min="3" step="3">
+            </div>
+
+            <div class="control-group">
+                <label for="poles">Number of Poles (N<sub>m</sub>):</label>
+                <input type="number" id="poles" value="14" min="2" step="2">
+            </div>
+
+            <div class="info-box">
+                <p><strong>Electrical Angle (&alpha;<sub>e</sub>):</strong> <span id="elecAngleDisplay">210.0</span>&deg;</p>
+                <p><strong>Pole Pairs (p):</strong> <span id="polePairsDisplay">7</span></p>
+                <p><strong>Slots/Pole/Phase (q):</strong> <span id="qDisplay">0.2857</span></p>
+            </div>
+
+            <div class="table-container">
+                <table id="angleTable">
+                    <thead>
+                        <tr>
+                            <th>Slot (Q)</th>
+                            <th>Angle (&deg;)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div>
+            <canvas id="phasorCanvas" width="450" height="450"></canvas>
+        </div>
+    </div>
+
+    <script>
+        // Get DOM elements
+        const slotsInput = document.getElementById('slots');
+        const polesInput = document.getElementById('poles');
+        const elecAngleDisplay = document.getElementById('elecAngleDisplay');
+        const polePairsDisplay = document.getElementById('polePairsDisplay');
+        const qDisplay = document.getElementById('qDisplay');
+        const angleTableBody = document.querySelector('#angleTable tbody');
+        const canvas = document.getElementById('phasorCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Setup Canvas dimensions
+        const width = canvas.width;
+        const height = canvas.height;
+        const cx = width / 2;
+        const cy = height / 2;
+        const radius = Math.min(width, height) / 2 - 40;
+
+        function updateDiagram() {
+            const slots = parseInt(slotsInput.value);
+            const poles = parseInt(polesInput.value);
+
+            if (isNaN(slots) || isNaN(poles) || slots <= 0 || poles <= 0) return;
+
+            const polePairs = poles / 2;
+            const q = slots / (poles * 3);
+
+            const elecAngle = (polePairs * 360) / slots;
+
+            polePairsDisplay.innerText = polePairs;
+            elecAngleDisplay.innerText = elecAngle.toFixed(1);
+            qDisplay.innerText = q.toFixed(4);
+
+            drawPhasors(slots, elecAngle);
+            updateTable(slots, elecAngle);
+        }
+
+        function drawPhasors(slots, elecAngle) {
+            ctx.clearRect(0, 0, width, height);
+
+            ctx.beginPath();
+            ctx.strokeStyle = '#eee';
+            ctx.moveTo(cx, 0); ctx.lineTo(cx, height);
+            ctx.moveTo(0, cy); ctx.lineTo(width, cy);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius, 0, 2 * Math.PI);
+            ctx.strokeStyle = '#ccc';
+            ctx.setLineDash([5, 5]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            const angleGroups = {};
+
+            for (let i = 1; i <= slots; i++) {
+                const accumulatedAngle = (i - 1) * elecAngle;
+                let angleDeg = accumulatedAngle % 360;
+
+                const key = angleDeg.toFixed(1);
+                if (!angleGroups[key]) {
+                    angleGroups[key] = { angle: angleDeg, slots: [] };
+                }
+                angleGroups[key].slots.push(i);
+            }
+
+            for (const key in angleGroups) {
+                const group = angleGroups[key];
+                const angleRad = -group.angle * (Math.PI / 180);
+
+                const endX = cx + radius * Math.cos(angleRad);
+                const endY = cy + radius * Math.sin(angleRad);
+
+                ctx.beginPath();
+                ctx.moveTo(cx, cy);
+                ctx.lineTo(endX, endY);
+                ctx.strokeStyle = '#e74c3c';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                const headlen = 10;
+                const headAngle1 = angleRad - Math.PI / 6;
+                const headAngle2 = angleRad + Math.PI / 6;
+                ctx.beginPath();
+                ctx.moveTo(endX, endY);
+                ctx.lineTo(endX - headlen * Math.cos(headAngle1), endY - headlen * Math.sin(headAngle1));
+                ctx.moveTo(endX, endY);
+                ctx.lineTo(endX - headlen * Math.cos(headAngle2), endY - headlen * Math.sin(headAngle2));
+                ctx.stroke();
+
+                const textX = cx + (radius + 20) * Math.cos(angleRad);
+                const textY = cy + (radius + 20) * Math.sin(angleRad);
+
+                ctx.fillStyle = '#2c3e50';
+                ctx.font = 'bold 14px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(`[${group.slots.join(',')}]`, textX, textY);
+            }
+        }
+
+        function updateTable(slots, elecAngle) {
+            angleTableBody.innerHTML = '';
+
+            for (let i = 1; i <= slots; i++) {
+                const accumulatedAngle = (i - 1) * elecAngle;
+                const moduloAngle = accumulatedAngle % 360;
+
+                const tr = document.createElement('tr');
+
+                const tdSlot = document.createElement('td');
+                tdSlot.innerHTML = `<strong>${i}</strong>`;
+
+                const tdAngle = document.createElement('td');
+                tdAngle.innerText = `${moduloAngle.toFixed(1)}°`;
+
+                tr.appendChild(tdSlot);
+                tr.appendChild(tdAngle);
+                angleTableBody.appendChild(tr);
+            }
+        }
+
+        slotsInput.addEventListener('input', updateDiagram);
+        polesInput.addEventListener('input', updateDiagram);
+
+        updateDiagram();
+    </script>
+</body>
+</html>

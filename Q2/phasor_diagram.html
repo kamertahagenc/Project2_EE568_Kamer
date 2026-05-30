@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Harmonic Phasor Visualizer</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f4f9;
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .controls {
+            margin-bottom: 15px;
+            padding: 10px;
+            background: #e8f4fd;
+            border-radius: 8px;
+            width: 100%;
+            text-align: center;
+        }
+        select {
+            padding: 8px;
+            font-size: 16px;
+            border-radius: 4px;
+        }
+        canvas {
+            border: 1px solid #eee;
+            border-radius: 8px;
+            background-color: #fafafa;
+        }
+        .legend-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-top: 15px;
+            justify-content: center;
+            padding: 10px;
+            background: #fdfdfd;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            width: 90%;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .color-box {
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="controls">
+            <label for="harmonicSelect"><strong>Select Harmonic: </strong></label>
+            <select id="harmonicSelect">
+                <option value="1">Fundamental (n=1)</option>
+                <option value="3">3rd Harmonic (n=3)</option>
+                <option value="5">5th Harmonic (n=5)</option>
+            </select>
+        </div>
+
+        <canvas id="phasorCanvas" width="800" height="500"></canvas>
+
+        <div class="legend-container" id="legendBox"></div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('phasorCanvas');
+        const ctx = canvas.getContext('2d');
+        const harmonicSelect = document.getElementById('harmonicSelect');
+        const legendBox = document.getElementById('legendBox');
+
+        const width = canvas.width;
+        const height = canvas.height;
+        const startX = 150;
+        const startY = 350;
+        const scale = 120;
+
+        const deg2rad = (deg) => deg * (Math.PI / 180);
+
+        // Distinct colors for each vector
+        const vectorColors = {
+            "V1": "#2980b9",   // Dark Blue
+            "V8": "#27ae60",   // Green
+            "-V7": "#f39c12",  // Orange
+            "-V2": "#8e44ad",  // Purple
+            "VA": "#c0392b"    // Red (Resultant)
+        };
+
+        function drawArrow(fromx, fromy, tox, toy, color, isResultant = false) {
+            const headlen = 14;
+            const dx = tox - fromx;
+            const dy = toy - fromy;
+            const angle = Math.atan2(dy, dx);
+
+            ctx.beginPath();
+            ctx.moveTo(fromx, fromy);
+            ctx.lineTo(tox, toy);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = isResultant ? 4 : 3;
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(tox, toy);
+            ctx.lineTo(tox - headlen * Math.cos(angle - Math.PI / 7), toy - headlen * Math.sin(angle - Math.PI / 7));
+            ctx.moveTo(tox, toy);
+            ctx.lineTo(tox - headlen * Math.cos(angle + Math.PI / 7), toy - headlen * Math.sin(angle + Math.PI / 7));
+            ctx.fillStyle = color;
+            ctx.fill();
+            ctx.stroke();
+        }
+
+        function drawGrid() {
+            ctx.clearRect(0, 0, width, height);
+            ctx.strokeStyle = '#e0e0e0';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([5, 5]);
+
+            ctx.beginPath(); ctx.moveTo(startX, startY); ctx.lineTo(width - 50, startY); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(startX, startY); ctx.lineTo(startX, 50); ctx.stroke();
+
+            ctx.setLineDash([]);
+            ctx.fillStyle = '#999';
+            ctx.font = '14px Arial';
+            ctx.fillText("Real Axis", width - 80, startY + 25);
+            ctx.fillText("Imag Axis", startX - 50, 40);
+        }
+
+        function updateLegend(baseAngles, n) {
+            legendBox.innerHTML = '';
+
+            baseAngles.forEach(vec => {
+                let angle = (vec.baseAngle * n) % 360;
+                if (vec.isNegative) {
+                    angle = (angle + 180) % 360;
+                }
+
+                const item = document.createElement('div');
+                item.className = 'legend-item';
+                item.innerHTML = `
+                    <div class="color-box" style="background-color: ${vectorColors[vec.id]}"></div>
+                    <span>${vec.id} (${angle}&deg;)</span>
+                `;
+                legendBox.appendChild(item);
+            });
+
+            // Add resultant to legend
+            const resItem = document.createElement('div');
+            resItem.className = 'legend-item';
+            resItem.innerHTML = `
+                <div class="color-box" style="background-color: ${vectorColors["VA"]}"></div>
+                <span>VA (Resultant, n=${n})</span>
+            `;
+            legendBox.appendChild(resItem);
+        }
+
+        function renderDiagram() {
+            drawGrid();
+            const n = parseInt(harmonicSelect.value);
+
+            let baseAngles = [
+                { id: "V1", baseAngle: 0, isNegative: false },
+                { id: "V8", baseAngle: 30, isNegative: false },
+                { id: "-V7", baseAngle: 180, isNegative: true },
+                { id: "-V2", baseAngle: 210, isNegative: true }
+            ];
+
+            let currentX = startX;
+            let currentY = startY;
+
+            baseAngles.forEach(vec => {
+                let angle = (vec.baseAngle * n) % 360;
+                if (vec.isNegative) {
+                    angle = (angle + 180) % 360;
+                }
+
+                const rad = deg2rad(-angle);
+                const nextX = currentX + scale * Math.cos(rad);
+                const nextY = currentY + scale * Math.sin(rad);
+
+                drawArrow(currentX, currentY, nextX, nextY, vectorColors[vec.id]);
+
+                currentX = nextX;
+                currentY = nextY;
+            });
+
+            drawArrow(startX, startY, currentX, currentY, vectorColors["VA"], true);
+            updateLegend(baseAngles, n);
+        }
+
+        harmonicSelect.addEventListener('change', renderDiagram);
+        renderDiagram();
+    </script>
+</body>
+</html>
